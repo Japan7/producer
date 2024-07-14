@@ -1,0 +1,30 @@
+name: Build and push image
+
+on:
+  push:
+    branches: ["master", "renovate/*"]
+  pull_request:
+    branches: ["master"]
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup S3 bucket
+        run: docker run -d -e MINIO_DEFAULT_BUCKETS=karaberus -p 9000:9000 bitnami/minio:latest
+
+      - name: Run tests
+        run: go test ./server
+        env:
+          KARABERUS_S3_ENDPOINT: localhost:9000
+          KARABERUS_S3_KEYID: minio
+          KARABERUS_S3_SECRET: miniosecret

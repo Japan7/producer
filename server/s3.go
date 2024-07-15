@@ -19,7 +19,7 @@ func getS3Client() (*minio.Client, error) {
 	return client, err
 }
 
-func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64) error {
+func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64, content_type string) error {
 	client, err := getS3Client()
 	if err != nil {
 		return err
@@ -31,7 +31,10 @@ func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename st
 		file,
 		filesize,
 		minio.PutObjectOptions{
-			UserMetadata: map[string]string{"Filename": filename},
+			UserMetadata: map[string]string{
+				"Filename": filename,
+				"Type":     content_type,
+			},
 		},
 	)
 	getLogger().Printf("upload info: %+v\n", info)

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2/humatest"
+	"github.com/gabriel-vasile/mimetype"
 )
 
 func getTestAPI(t *testing.T) humatest.TestAPI {
@@ -60,7 +61,8 @@ func uploadData(t *testing.T, api humatest.TestAPI, data []byte, filename string
 func TestUploadDownload(t *testing.T) {
 	api := getTestAPI(t)
 
-	test_data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9}
+	test_data := []byte("hello world")
+	mime := mimetype.Detect(test_data)
 	filename := "test_file"
 	upload_data := uploadData(t, api, test_data, filename)
 
@@ -83,6 +85,15 @@ func TestUploadDownload(t *testing.T) {
 
 	res := resp.Result()
 	content_disposition_header := res.Header["Content-Disposition"][0]
+	content_type := res.Header["Content-Type"][0]
+
+	if content_type == "" {
+		t.Fatal("Content-Type header is not set")
+	}
+
+	if content_type != mime.String() {
+		t.Fatalf("Content-Type header is not the detected file type: %s != %s", content_type, mime.String())
+	}
 
 	matched, _ := regexp.MatchString(
 		fmt.Sprintf("filename=%s", regexp.QuoteMeta(filename)),

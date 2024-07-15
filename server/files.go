@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 )
 
@@ -42,7 +43,15 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 		return nil, err
 	}
 
-	err = UploadToS3(ctx, fd, file_id.String(), file.Filename, file.Size)
+	det_buf := make([]byte, 1024)
+	n, err := fd.Read(det_buf)
+	if err != nil {
+		return nil, err
+	}
+	mime := mimetype.Detect(det_buf[:n])
+	fd.Seek(0, 0)
+
+	err = UploadToS3(ctx, fd, file_id.String(), file.Filename, file.Size, mime.String())
 	if err != nil {
 		return nil, err
 	}
@@ -120,10 +129,18 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 
 			stat, err := obj.Stat()
 			filename := stat.UserMetadata["Filename"]
+			content_type := stat.UserMetadata["Type"]
+
+			main_type, _, _ := strings.Cut(content_type, "/")
 
 			ctx.SetHeader("Accept-Range", "bytes")
 			ctx.SetHeader("Content-Length", fmt.Sprintf("%d", stat.Size))
-			ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+			if main_type == "text" {
+				ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=%s", filename))
+			} else {
+				ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+			}
+			ctx.SetHeader("Content-Type", content_type)
 
 			var start int64
 			var end int64

@@ -135,7 +135,6 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 			main_type, _, _ := strings.Cut(content_type, "/")
 
 			ctx.SetHeader("Accept-Range", "bytes")
-			ctx.SetHeader("Content-Length", fmt.Sprintf("%d", stat.Size))
 			if main_type == "text" {
 				ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
 			} else {
@@ -150,11 +149,15 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 				end = stat.Size
 			} else {
 				start, end, err = parseRangeHeader(input.Range)
+				ctx.SetStatus(206)
+				ctx.SetHeader("Range", fmt.Sprintf("bytes %d-%d/%d", start, end, stat.Size))
 			}
 
 			obj.Seek(start, 0)
 
 			bytes_to_read := end - start
+			ctx.SetHeader("Content-Length", fmt.Sprintf("%d", bytes_to_read))
+
 			var n int
 			var buf []byte
 			for {

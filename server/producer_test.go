@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestUploadDownload(t *testing.T) {
 
 	test_data := []byte("hello world")
 	mime := mimetype.Detect(test_data)
-	filename := "test_file"
+	filename := "test file"
 	upload_data := uploadData(t, api, test_data, filename)
 
 	path := fmt.Sprintf("/%s", upload_data.Body.ID)
@@ -96,7 +97,7 @@ func TestUploadDownload(t *testing.T) {
 	}
 
 	matched, _ := regexp.MatchString(
-		fmt.Sprintf("filename=%s", regexp.QuoteMeta(filename)),
+		fmt.Sprintf("filename=\"%s\"", regexp.QuoteMeta(url.PathEscape(filename))),
 		content_disposition_header,
 	)
 

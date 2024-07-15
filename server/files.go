@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -128,7 +129,7 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 			writer := ctx.BodyWriter()
 
 			stat, err := obj.Stat()
-			filename := stat.UserMetadata["Filename"]
+			filename := url.PathEscape(stat.UserMetadata["Filename"])
 			content_type := stat.UserMetadata["Type"]
 
 			main_type, _, _ := strings.Cut(content_type, "/")
@@ -136,9 +137,9 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 			ctx.SetHeader("Accept-Range", "bytes")
 			ctx.SetHeader("Content-Length", fmt.Sprintf("%d", stat.Size))
 			if main_type == "text" {
-				ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=%s", filename))
+				ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
 			} else {
-				ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+				ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
 			}
 			ctx.SetHeader("Content-Type", content_type)
 

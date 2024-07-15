@@ -1,0 +1,4 @@
+FROM scratch
+COPY producer /
+EXPOSE 8140
+ENTRYPOINT ["/producer"]

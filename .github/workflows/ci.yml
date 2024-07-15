@@ -28,3 +28,103 @@ jobs:
           PRODUCER_S3_ENDPOINT: localhost:9000
           PRODUCER_S3_KEYID: minio
           PRODUCER_S3_SECRET: miniosecret
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - GOOS: linux
+            GOARCH: amd64
+            platform: linux/amd64
+          - GOOS: linux
+            GOARCH: arm64
+            platform: linux/arm64
+          - GOOS: linux
+            GOARCH: riscv64
+            platform: linux/riscv64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build producer
+        run: GOOS=${{ matrix.config.GOOS }} GOARCH=${{ matrix.config.GOARCH }} ci/build.sh producer
+
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=schedule
+
+
+      - name: Build image
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          platforms: ${{ matrix.config.platform }}
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ github.sha }}-${{ matrix.config.GOARCH }}
+          labels: ${{ steps.meta.outputs.labels }}
+          containerfiles: ci/ContainerFile
+
+      - name: Push image
+        id: push-image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+  push_manifest:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Podman login
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: create and push manifest for supported platforms
+        run: |
+          image_base_raw=${{ env.IMAGE_NAME }}
+          image_base=${image_base_raw@L}
+          image_base_sha=${image_base_raw@L}:${{ github.sha }}
+          podman manifest create $image_base
+          podman pull ${{ env.REGISTRY }}/$image_base_sha-amd64
+          podman pull ${{ env.REGISTRY }}/$image_base_sha-arm64
+          podman pull ${{ env.REGISTRY }}/$image_base_sha-riscv64
+          podman manifest add $image_base ${{ env.REGISTRY }}/$image_base_sha-amd64
+          podman manifest add $image_base ${{ env.REGISTRY }}/$image_base_sha-arm64
+          podman manifest add $image_base ${{ env.REGISTRY }}/$image_base_sha-riscv64
+          podman manifest push $image_base ${{ env.REGISTRY }}/$image_base_sha
+
+      - name: push branch manifest
+        if: github.ref == 'refs/heads/main'
+        run: |
+          image_base_raw=${{ env.IMAGE_NAME }}
+          image_base=${image_base_raw@L}
+          podman manifest push $image_base ${{ env.REGISTRY }}/$image_base:${{ github.ref_name }}
+

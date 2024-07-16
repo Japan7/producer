@@ -1,4 +1,4 @@
-FROM scratch
+FROM docker.io/alpine
 COPY producer /
 EXPOSE 8140
 ENTRYPOINT ["/producer"]

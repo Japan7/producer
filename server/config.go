@@ -94,6 +94,7 @@ func getProducerConfig() ProducerConfig {
 	if config.Upload.BaseURL == "" {
 		// default to listen address
 		config.Upload.BaseURL = "http://" + config.Listen.Addr()
+		getLogger().Printf("Base URL implicitly set to %s", config.Upload.BaseURL)
 	}
 
 	return config

@@ -33,7 +33,7 @@ type UploadOutput struct {
 	Body struct {
 		ID      string `json:"id"`
 		URL     string `json:"url"`
-		Expires int    `json:"expires"`
+		Expires int64  `json:"expires"`
 	}
 }
 
@@ -41,6 +41,10 @@ var BEARER_PREFIX = "Bearer "
 
 func isAuthenticated(authorization string) bool {
 	if CONFIG.Upload.AdminToken == "" {
+		return false
+	}
+
+	if len(authorization) != len(BEARER_PREFIX)+len(CONFIG.Upload.AdminToken) {
 		return false
 	}
 
@@ -86,7 +90,7 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 	resp := &UploadOutput{}
 	resp.Body.ID = file_id.String()
 	resp.Body.URL = fmt.Sprintf("%s/%s", CONFIG.Upload.BaseURL, file_id.String())
-	resp.Body.Expires = int(expires.Unix())
+	resp.Body.Expires = expires.Unix()
 
 	return resp, nil
 }

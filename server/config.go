@@ -21,6 +21,9 @@ func (c ProducerListenConfig) Addr() string {
 type ProducerUploadConfig struct {
 	BodyLimit int    `envkey:"BODY_LIMIT" default:"1073741824"`
 	BaseURL   string `envkey:"BASE_URL"`
+	// Default expiration time in seconds
+	DefaultExpirationTime int    `envkey:"DEFAULT_EXPIRATION_TIME" default:"1800"`
+	AdminToken            string `envkey:"ADMIN_TOKEN"`
 }
 
 type ProducerS3Config struct {

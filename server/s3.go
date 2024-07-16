@@ -6,6 +6,7 @@ package server
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -19,7 +20,7 @@ func getS3Client() (*minio.Client, error) {
 	return client, err
 }
 
-func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64, content_type string) error {
+func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64, content_type string, expires time.Time) error {
 	client, err := getS3Client()
 	if err != nil {
 		return err
@@ -35,6 +36,7 @@ func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename st
 				"Filename": filename,
 				"Type":     content_type,
 			},
+			Expires: expires,
 		},
 	)
 	getLogger().Printf("upload info: %+v\n", info)

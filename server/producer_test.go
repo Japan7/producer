@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2/humatest"
 	"github.com/gabriel-vasile/mimetype"
@@ -66,6 +67,12 @@ func TestUploadDownload(t *testing.T) {
 	mime := mimetype.Detect(test_data)
 	filename := "test file"
 	upload_data := uploadData(t, api, test_data, filename)
+
+	expected_expires := time.Now().Add(time.Duration(CONFIG.Upload.DefaultExpirationTime) * time.Second).Unix()
+
+	if expected_expires+1 < int64(upload_data.Body.Expires) || expected_expires-1 > int64(upload_data.Body.Expires) {
+		t.Fatalf("Expected expire value of %d (+-1), found %d", expected_expires, upload_data.Body.Expires)
+	}
 
 	path := fmt.Sprintf("/%s", upload_data.Body.ID)
 	resp := assertRespCode(t, api.Get(path), 200)

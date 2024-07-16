@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gabriel-vasile/mimetype"
@@ -22,13 +24,32 @@ type UploadData struct {
 }
 
 type UploadInput struct {
+	Auth    string `header:"Authorization"`
+	Expires int64  `header:"Expires"`
 	RawBody huma.MultipartFormFiles[UploadData]
 }
 
 type UploadOutput struct {
 	Body struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
+		ID      string `json:"id"`
+		URL     string `json:"url"`
+		Expires int    `json:"expires"`
+	}
+}
+
+var BEARER_PREFIX = "Bearer "
+
+func isAuthenticated(authorization string) bool {
+	if CONFIG.Upload.AdminToken == "" {
+		return false
+	}
+
+	if authorization[:len(BEARER_PREFIX)] == BEARER_PREFIX {
+		header_token := authorization[len(BEARER_PREFIX):]
+
+		return subtle.ConstantTimeCompare([]byte(header_token), []byte(CONFIG.Upload.AdminToken)) == 1
+	} else {
+		return false
 	}
 }
 
@@ -52,7 +73,12 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 	mime := mimetype.Detect(det_buf[:n])
 	fd.Seek(0, 0)
 
-	err = UploadToS3(ctx, fd, file_id.String(), file.Filename, file.Size, mime.String())
+	expires := time.Now().Add(time.Duration(CONFIG.Upload.DefaultExpirationTime) * time.Second)
+	if isAuthenticated(input.Auth) {
+		expires = time.Unix(input.Expires, 0)
+	}
+
+	err = UploadToS3(ctx, fd, file_id.String(), file.Filename, file.Size, mime.String(), expires)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +86,7 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 	resp := &UploadOutput{}
 	resp.Body.ID = file_id.String()
 	resp.Body.URL = fmt.Sprintf("%s/%s", CONFIG.Upload.BaseURL, file_id.String())
+	resp.Body.Expires = int(expires.Unix())
 
 	return resp, nil
 }

@@ -132,14 +132,8 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 			filename := url.PathEscape(stat.UserMetadata["Filename"])
 			content_type := stat.UserMetadata["Type"]
 
-			main_type, _, _ := strings.Cut(content_type, "/")
-
 			ctx.SetHeader("Accept-Range", "bytes")
-			if main_type == "text" {
-				ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
-			} else {
-				ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
-			}
+			ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
 			ctx.SetHeader("Content-Type", content_type)
 
 			var start int64

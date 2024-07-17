@@ -166,6 +166,9 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 			ctx.SetHeader("Accept-Range", "bytes")
 			ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
 			ctx.SetHeader("Content-Type", content_type)
+			if stat.Expires.Unix() != 0 {
+				ctx.SetHeader("Expires", fmt.Sprintf("%d", stat.Expires.Unix()))
+			}
 
 			var start int64
 			var end int64

@@ -76,7 +76,8 @@ func setConfigValue(config_value reflect.Value, config_type reflect.Type, prefix
 			}
 			field.SetInt(int64(int_value))
 		case reflect.Bool:
-			field.SetBool(getFieldValue(field_type, prefix) != "")
+			value := getFieldValue(field_type, prefix)
+			field.SetBool(value != "" && value != "false" && value != "0")
 		case reflect.Struct:
 			field_prefix := prefix + field_type.Tag.Get("env_prefix") + "_"
 			setConfigValue(field, field_type.Type, field_prefix)

@@ -152,6 +152,15 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 	if err != nil {
 		return nil, err
 	}
+	stat, err := obj.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if stat.Expires.Unix() != 0 && stat.Expires.Before(time.Now()) {
+		go DeleteObject(ctx, input.Filename)
+		return nil, huma.Error410Gone("File expired")
+	}
 
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {
@@ -159,7 +168,6 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 
 			writer := ctx.BodyWriter()
 
-			stat, err := obj.Stat()
 			filename := url.PathEscape(stat.UserMetadata["Filename"])
 			content_type := stat.UserMetadata["Type"]
 

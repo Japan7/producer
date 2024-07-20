@@ -4,12 +4,12 @@ go 1.22.5
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.18.0
+	github.com/gabriel-vasile/mimetype v1.4.4
 	github.com/gofiber/fiber/v2 v2.52.5
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.4 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -29,7 +29,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/minio/minio-go/v7 v7.0.73
+	github.com/minio/minio-go/v7 v7.0.74
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/cobra v1.8.1
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

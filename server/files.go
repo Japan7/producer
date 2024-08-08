@@ -5,18 +5,19 @@ package server
 import (
 	"context"
 	"crypto/subtle"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/ironsmile/nedomi/utils/httputils"
+	"github.com/minio/minio-go/v7"
 )
 
 type UploadData struct {
@@ -102,7 +103,9 @@ type DownloadInput struct {
 
 type DownloadHeadOutput struct {
 	AcceptRange   string `header:"Accept-Range"`
-	ContentLength int    `header:"Content-Length"`
+	ContentLength int64  `header:"Content-Length"`
+	ContentType   string `header:"Content-Type"`
+	Expires       int64  `header:"Expires"`
 }
 
 func DownloadHead(ctx context.Context, input *DownloadInput) (*DownloadHeadOutput, error) {
@@ -117,9 +120,16 @@ func DownloadHead(ctx context.Context, input *DownloadInput) (*DownloadHeadOutpu
 		return nil, err
 	}
 
+	content_type, err := detectType(obj)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DownloadHeadOutput{
 		AcceptRange:   "bytes",
-		ContentLength: int(stat.Size),
+		ContentLength: stat.Size,
+		ContentType:   content_type.String(),
+		Expires:       stat.Expires.Unix(),
 	}, nil
 }
 
@@ -152,69 +162,114 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 	if err != nil {
 		return nil, err
 	}
-	stat, err := obj.Stat()
+
+	return serveObject(obj, input.Range)
+}
+
+type FileSender struct {
+	// Reader should be already at the Range.Start location
+	Fd        io.ReadCloser
+	Range     httputils.Range
+	BytesRead uint64
+}
+
+func (f *FileSender) Read(buf []byte) (int, error) {
+	toread := f.Range.Length - f.BytesRead
+	if toread < uint64(len(buf)) {
+		buf = buf[:toread]
+	}
+	return f.Fd.Read(buf)
+}
+
+func (f *FileSender) Close() error {
+	return f.Fd.Close()
+}
+
+func detectType(obj *minio.Object) (*mimetype.MIME, error) {
+	buf := make([]byte, 1024)
+	_, err := obj.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	_, err = obj.Seek(0, 0)
 	if err != nil {
 		return nil, err
 	}
 
+	mime := mimetype.Detect(buf)
+	return mime, nil
+}
+
+func serveObject(obj *minio.Object, range_header string) (*huma.StreamResponse, error) {
+	stat, err := obj.Stat()
+
 	if stat.Expires.Unix() != 0 && stat.Expires.Before(time.Now()) {
-		go DeleteObject(ctx, input.Filename)
+		go DeleteObject(context.Background(), stat.Key)
 		return nil, huma.Error410Gone("File expired")
 	}
 
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {
-			defer obj.Close()
+			defer func() {
+				r := recover()
+				if r != nil {
+					// unlikely, but close object on panic just in case it happens
+					err = obj.Close()
+					if err != nil {
+						panic(err)
+					}
+					panic(r)
+				}
+			}()
 
-			writer := ctx.BodyWriter()
+			if err != nil {
+				resp := minio.ToErrorResponse(err)
+				if resp.Code == "NoSuchKey" {
+					ctx.SetStatus(404)
+				} else {
+					ctx.SetStatus(500)
+					getLogger().Printf("%+v\n", resp)
+				}
+				return
+			}
 
-			filename := url.PathEscape(stat.UserMetadata["Filename"])
-			content_type := stat.UserMetadata["Type"]
+			content_type, err := detectType(obj)
+			if err != nil {
+				return
+			}
+			ctx.SetHeader("Content-Type", content_type.String())
 
 			ctx.SetHeader("Accept-Range", "bytes")
-			ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
-			ctx.SetHeader("Content-Type", content_type)
-			if stat.Expires.Unix() != 0 {
-				ctx.SetHeader("Expires", fmt.Sprintf("%d", stat.Expires.Unix()))
-			}
 
-			var start int64
-			var end int64
-			if input.Range == "" {
-				start = 0
-				end = stat.Size
+			var reqRange httputils.Range
+			if range_header == "" {
+				reqRange = httputils.Range{Start: 0, Length: uint64(stat.Size)}
 			} else {
-				start, end, err = parseRangeHeader(input.Range)
-				ctx.SetStatus(206)
-				ctx.SetHeader("Range", fmt.Sprintf("bytes %d-%d/%d", start, end, stat.Size))
-			}
-
-			obj.Seek(start, 0)
-
-			bytes_to_read := end - start
-			ctx.SetHeader("Content-Length", fmt.Sprintf("%d", bytes_to_read))
-
-			var n int
-			var buf []byte
-			for {
-				if bytes_to_read < 1024*1024 {
-					buf = make([]byte, bytes_to_read)
-				} else {
-					buf = make([]byte, 1024*1024)
-				}
-				n, err = obj.Read(buf)
-				writer.Write(buf[:n])
-				bytes_to_read -= int64(n)
+				ranges, err := httputils.ParseRequestRange(range_header, uint64(stat.Size))
 				if err != nil {
-					if errors.Is(err, io.EOF) {
-						err = nil
-					}
-					break
+					ctx.SetStatus(416)
+					ctx.SetHeader("Content-Range", fmt.Sprintf("bytes */%d", stat.Size))
+					return
 				}
-				if bytes_to_read <= 0 {
-					break
-				}
+				reqRange = ranges[0]
+				ctx.SetStatus(206)
+				ctx.SetHeader("Content-Range", reqRange.ContentRange(uint64(stat.Size)))
 			}
+
+			ctx.SetHeader("Content-Length", strconv.FormatUint(reqRange.Length, 10))
+			if stat.Expires.Unix() != 0 {
+				ctx.SetHeader("Expires", strconv.FormatInt(stat.Expires.Unix(), 10))
+			}
+
+			_, err = obj.Seek(int64(reqRange.Start), 0)
+			if err != nil {
+				return
+			}
+
+			filesender := FileSender{obj, reqRange, 0}
+
+			fiber_ctx := ctx.BodyWriter().(*fiber.Ctx)
+			err = fiber_ctx.SendStream(&filesender, int(stat.Size))
 		},
 	}, err
 }

@@ -203,10 +203,10 @@ func detectType(obj *minio.Object) (*mimetype.MIME, error) {
 func serveObject(obj *minio.Object, range_header string) (*huma.StreamResponse, error) {
 	stat, err := obj.Stat()
 
-	if stat.Expires.Unix() != 0 && stat.Expires.Before(time.Now()) {
-		go DeleteObject(context.Background(), stat.Key)
-		return nil, huma.Error410Gone("File expired")
-	}
+	// if stat.Expires.Unix() != 0 && stat.Expires.Before(time.Now()) {
+	// 	go DeleteObject(context.Background(), stat.Key)
+	// 	return nil, huma.Error410Gone("File expired")
+	// }
 
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {

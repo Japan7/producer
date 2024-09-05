@@ -4,6 +4,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humafiber"
@@ -26,7 +28,14 @@ func SetupProducer() (*fiber.App, huma.API) {
 		BodyLimit: 512 * 1024 * 1024,
 	})
 
-	app.Use(logger.New())
+	app.Use(logger.New(logger.Config{
+		Format:        "${time} | ${status} | ${latency} | ${ip} | ${ua} | ${method} | ${path} | ${error}\n",
+		TimeFormat:    "15:04:05",
+		TimeZone:      "UTC",
+		TimeInterval:  500 * time.Millisecond,
+		Output:        os.Stdout,
+		DisableColors: false,
+	}))
 
 	api := humafiber.New(app, huma.DefaultConfig("Producer", "1.0.0"))
 	routes(api)

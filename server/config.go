@@ -28,8 +28,8 @@ type ProducerUploadConfig struct {
 }
 
 type ProducerS3Config struct {
-	// S3 host
-	Endpoint string `envkey:"ENDPOINT"`
+	// S3 hosts
+	Endpoints []string `envkey:"ENDPOINT" separator:" "`
 	// use HTTPS
 	Secure     bool   `envkey:"SECURE"`
 	KeyID      string `envkey:"KEYID"`
@@ -66,24 +66,31 @@ func setConfigValue(config_value reflect.Value, config_type reflect.Type, prefix
 		field_type := config_type.Field(i)
 		field := config_value.FieldByName(field_type.Name)
 
-		switch field_type.Type.Kind() {
-		case reflect.String:
+		switch field_type.Type {
+		case reflect.TypeOf([]string{}):
+			value := getFieldValue(field_type, prefix)
+			sep := field_type.Tag.Get("separator")
+			arrval := strings.Split(value, sep)
+			field.Set(reflect.ValueOf(arrval))
+		case reflect.TypeOf(""):
 			field.SetString(getFieldValue(field_type, prefix))
-		case reflect.Int:
+		case reflect.TypeOf(0):
 			value := getFieldValue(field_type, prefix)
 			int_value, err := strconv.Atoi(value)
 			if err != nil {
 				panic(err)
 			}
 			field.SetInt(int64(int_value))
-		case reflect.Bool:
+		case reflect.TypeOf(true):
 			value := getFieldValue(field_type, prefix)
 			field.SetBool(value != "" && strings.ToLower(value) != "false" && value != "0")
-		case reflect.Struct:
-			field_prefix := prefix + field_type.Tag.Get("env_prefix") + "_"
-			setConfigValue(field, field_type.Type, field_prefix)
 		default:
-			panic(fmt.Sprintf("unknown field type for field %s: %s", field_type.Name, field_type.Type.Name()))
+			if field_type.Type.Kind() == reflect.Struct {
+				field_prefix := prefix + field_type.Tag.Get("env_prefix") + "_"
+				setConfigValue(field, field_type.Type, field_prefix)
+			} else {
+				panic(fmt.Sprintf("unknown field type for field %s: %+v", field_type.Name, field_type.Type.Kind()))
+			}
 		}
 	}
 }

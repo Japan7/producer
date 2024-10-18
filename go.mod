@@ -3,7 +3,7 @@ module github.com/Japan7/producer
 go 1.22.5
 
 require (
-	github.com/danielgtaylor/huma/v2 v2.23.0
+	github.com/danielgtaylor/huma/v2 v2.24.0
 	github.com/gabriel-vasile/mimetype v1.4.6
 	github.com/gofiber/fiber/v2 v2.52.5
 )
@@ -30,12 +30,12 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/minio/minio-go/v7 v7.0.78
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/cobra v1.8.1
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.52.0 // indirect
+	github.com/valyala/fasthttp v1.56.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 )

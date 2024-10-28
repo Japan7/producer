@@ -3,6 +3,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"time"
@@ -44,6 +45,8 @@ func SetupProducer() (*fiber.App, huma.API) {
 }
 
 func RunProducer(app *fiber.App, api huma.API) {
+	initClients(context.Background())
+
 	listen_addr := CONFIG.Listen.Addr()
 	getLogger().Printf("starting server on %s.\n", listen_addr)
 	getLogger().Fatal(app.Listen(listen_addr))

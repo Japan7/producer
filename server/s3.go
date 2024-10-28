@@ -6,7 +6,7 @@ package server
 import (
 	"context"
 	"io"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -14,27 +14,77 @@ import (
 )
 
 var S3_CLIENTS map[string]*minio.Client = map[string]*minio.Client{}
-var client_to_pick uint64 = 0
+var S3_BEST_CLIENT *minio.Client
 
-func getS3Client() (*minio.Client, error) {
-	client_i := atomic.AddUint64(&client_to_pick, 1) % uint64(len(CONFIG.S3.Endpoints))
-	endpoint := CONFIG.S3.Endpoints[client_i]
+var clientsMutex = sync.Mutex{}
 
-	var err error = nil
-	if S3_CLIENTS[endpoint] == nil {
+type TestedClient struct {
+	Client      *minio.Client
+	ListLatency int64
+}
+
+func initClients(ctx context.Context) {
+	if len(CONFIG.S3.Endpoints) == 0 {
+		panic("No S3 endpoints configured")
+	}
+
+	var err error
+	for _, endpoint := range CONFIG.S3.Endpoints {
 		S3_CLIENTS[endpoint], err = minio.New(endpoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(CONFIG.S3.KeyID, CONFIG.S3.Secret, ""),
 			Secure: CONFIG.S3.Secure,
 		})
+		if err != nil {
+			panic(err)
+		}
 	}
-	return S3_CLIENTS[endpoint], err
+
+	pickBestClient(ctx)
+
+	go func() {
+		for {
+			pickBestClient(ctx)
+			time.Sleep(60 * time.Second)
+		}
+	}()
+}
+
+// We’re assuming that a garage node among one of the addresses is on the
+// local host, which would have the lowest latency and probably offer the best
+// bandwidth.
+func pickBestClient(ctx context.Context) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+
+	var best_client *TestedClient = nil
+
+	var err error
+	for _, client := range S3_CLIENTS {
+		begin_time := time.Now()
+		_, err = client.ListBuckets(ctx)
+		if err != nil {
+			continue
+		}
+		tested := TestedClient{client, time.Since(begin_time).Nanoseconds()}
+
+		if best_client == nil || tested.ListLatency < best_client.ListLatency {
+			best_client = &tested
+		}
+	}
+
+	if best_client == nil {
+		panic(err)
+	}
+
+	S3_BEST_CLIENT = best_client.Client
+}
+
+func getS3Client() *minio.Client {
+	return S3_BEST_CLIENT
 }
 
 func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64, content_type string, expires time.Time) error {
-	client, err := getS3Client()
-	if err != nil {
-		return err
-	}
+	client := getS3Client()
 
 	info, err := client.PutObject(ctx,
 		CONFIG.S3.BucketName,
@@ -55,21 +105,13 @@ func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename st
 }
 
 func GetFileObject(ctx context.Context, filename string) (*minio.Object, error) {
-	client, err := getS3Client()
-	if err != nil {
-		return nil, err
-	}
-
+	client := getS3Client()
 	obj, err := client.GetObject(ctx, CONFIG.S3.BucketName, filename, minio.GetObjectOptions{})
 	return obj, err
 }
 
 func DeleteObject(ctx context.Context, filename string) error {
-	client, err := getS3Client()
-	if err != nil {
-		return err
-	}
-
-	err = client.RemoveObject(ctx, CONFIG.S3.BucketName, filename, minio.RemoveObjectOptions{})
+	client := getS3Client()
+	err := client.RemoveObject(ctx, CONFIG.S3.BucketName, filename, minio.RemoveObjectOptions{})
 	return err
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -97,8 +98,9 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 }
 
 type DownloadInput struct {
-	Filename string `path:"id" example:"1.webm"`
-	Range    string `header:"Range"`
+	Filename    string `path:"id" example:"1.webm"`
+	Range       string `header:"Range"`
+	IfNoneMatch string `header:"If-None-Match"`
 }
 
 type DownloadHeadOutput struct {
@@ -163,7 +165,7 @@ func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, 
 		return nil, err
 	}
 
-	return serveObject(obj, input.Range)
+	return serveObject(obj, input.Range, input.IfNoneMatch)
 }
 
 type FileSender struct {
@@ -200,7 +202,7 @@ func detectType(obj *minio.Object) (*mimetype.MIME, error) {
 	return mime, nil
 }
 
-func serveObject(obj *minio.Object, range_header string) (*huma.StreamResponse, error) {
+func serveObject(obj *minio.Object, range_header string, if_none_match string) (*huma.StreamResponse, error) {
 	stat, err := obj.Stat()
 
 	// if stat.Expires.Unix() != 0 && stat.Expires.Before(time.Now()) {
@@ -233,12 +235,16 @@ func serveObject(obj *minio.Object, range_header string) (*huma.StreamResponse, 
 				return
 			}
 
+			if stat.ETag == if_none_match {
+				ctx.SetStatus(304)
+				return
+			}
+
 			content_type, err := detectType(obj)
 			if err != nil {
 				return
 			}
 			ctx.SetHeader("Content-Type", content_type.String())
-
 			ctx.SetHeader("Accept-Range", "bytes")
 
 			var reqRange httputils.Range
@@ -260,6 +266,9 @@ func serveObject(obj *minio.Object, range_header string) (*huma.StreamResponse, 
 			if stat.Expires.Unix() != 0 {
 				ctx.SetHeader("Expires", strconv.FormatInt(stat.Expires.Unix(), 10))
 			}
+
+			ctx.SetHeader("ETag", stat.ETag)
+			ctx.SetHeader("Last-Modified", stat.LastModified.Format(http.TimeFormat))
 
 			_, err = obj.Seek(int64(reqRange.Start), 0)
 			if err != nil {

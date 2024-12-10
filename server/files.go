@@ -160,12 +160,8 @@ func parseRangeHeader(range_header string) (int64, int64, error) {
 }
 
 func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, error) {
-	obj, err := GetFileObject(ctx, input.Filename)
-	if err != nil {
-		return nil, err
-	}
 
-	return serveObject(obj, input.Range, input.IfNoneMatch)
+	return serveObject(input.Filename, input.Range, input.IfNoneMatch)
 }
 
 type FileSender struct {
@@ -202,8 +198,7 @@ func detectType(obj *minio.Object) (*mimetype.MIME, error) {
 	return mime, nil
 }
 
-func serveObject(obj *minio.Object, range_header string, if_none_match string) (*huma.StreamResponse, error) {
-	stat, err := obj.Stat()
+func serveObject(filename string, range_header string, if_none_match string) (*huma.StreamResponse, error) {
 
 	// if stat.Expires.Unix() != 0 && stat.Expires.Before(time.Now()) {
 	// 	go DeleteObject(context.Background(), stat.Key)
@@ -212,6 +207,13 @@ func serveObject(obj *minio.Object, range_header string, if_none_match string) (
 
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {
+			fiber_ctx := ctx.BodyWriter().(*fiber.Ctx)
+			obj, err := GetFileObject(fiber_ctx.Context(), filename)
+			if err != nil {
+				ctx.SetStatus(500)
+				return
+			}
+
 			defer func() {
 				r := recover()
 				if r != nil {
@@ -224,6 +226,7 @@ func serveObject(obj *minio.Object, range_header string, if_none_match string) (
 				}
 			}()
 
+			stat, err := obj.Stat()
 			if err != nil {
 				resp := minio.ToErrorResponse(err)
 				if resp.Code == "NoSuchKey" {
@@ -277,8 +280,7 @@ func serveObject(obj *minio.Object, range_header string, if_none_match string) (
 
 			filesender := FileSender{obj, reqRange, 0}
 
-			fiber_ctx := ctx.BodyWriter().(*fiber.Ctx)
 			err = fiber_ctx.SendStream(&filesender, int(reqRange.Length))
 		},
-	}, err
+	}, nil
 }

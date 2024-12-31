@@ -5,7 +5,7 @@ go 1.22.5
 require (
 	github.com/danielgtaylor/huma/v2 v2.27.0
 	github.com/gabriel-vasile/mimetype v1.4.7
-	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/gofiber/fiber/v2 v2.52.6
 )
 
 require (

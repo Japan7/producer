@@ -5,31 +5,43 @@ package server
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/ironsmile/nedomi/utils/httputils"
 	"github.com/minio/minio-go/v7"
+	"github.com/valyala/fasthttp"
 )
 
 type UploadData struct {
 	UploadFile multipart.File `form-data:"file" required:"true"`
 }
 
-type UploadInput struct {
-	Auth    string `header:"Authorization"`
-	Expires int64  `header:"Expires"`
-	RawBody huma.MultipartFormFiles[UploadData]
+type UploadInputDefinition struct {
+	Auth     string `header:"Authorization"`
+	Expires  int64  `header:"Expires"`
+	FileName string `header:"Filename"`
+	RawBody  huma.MultipartFormFiles[UploadData]
 }
+
+type UploadInput struct {
+	Auth     string `header:"Authorization"`
+	Expires  int64  `header:"Expires"`
+	FileName string `header:"Filename"`
+	File     UploadTempFile
+}
+
+var _ huma.Resolver = (*UploadInput)(nil)
 
 type UploadOutput struct {
 	Body struct {
@@ -59,12 +71,68 @@ func isAuthenticated(authorization string) bool {
 	}
 }
 
-func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
-	file := input.RawBody.Form.File["file"][0]
-	fd, err := file.Open()
+type UploadTempFile struct {
+	Fd    *os.File
+	Size  int64
+	CRC32 uint32
+}
+
+func CreateTempFile(ctx context.Context, tempfile *UploadTempFile, reader io.Reader) error {
+	fd, err := os.CreateTemp("", "karaberus-*")
 	if err != nil {
-		return nil, err
+		return err
 	}
+
+	hasher := crc32.NewIEEE()
+	// roughly io.Copy but with a small buffer
+	// don't change mindlessly
+	buf := make([]byte, 1024*8)
+	for {
+		n, err := reader.Read(buf)
+		if errors.Is(err, io.EOF) {
+			if n == 0 {
+				break
+			}
+		} else if err != nil {
+			return err
+		}
+		_, err = hasher.Write(buf[:n])
+		if err != nil {
+			return err
+		}
+		_, err = fd.Write(buf[:n])
+		if err != nil {
+			return err
+		}
+	}
+
+	tempfile.CRC32 = hasher.Sum32()
+	tempfile.Fd = fd
+
+	stat, err := fd.Stat()
+	if err != nil {
+		return err
+	}
+	tempfile.Size = stat.Size()
+
+	_, err = fd.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *UploadInput) Resolve(ctx huma.Context) []error {
+	err := CreateTempFile(ctx.Context(), &i.File, ctx.BodyReader())
+	if err != nil {
+		return []error{err}
+	}
+	return nil
+}
+
+func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
+	fd := input.File.Fd
 
 	file_id, err := uuid.NewV7()
 	if err != nil {
@@ -84,7 +152,7 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 		expires = time.Unix(input.Expires, 0)
 	}
 
-	err = UploadToS3(ctx, fd, file_id.String(), file.Filename, file.Size, mime.String(), expires)
+	err = UploadToS3(ctx, fd, file_id.String(), input.FileName, input.File.Size, mime.String(), expires)
 	if err != nil {
 		return nil, err
 	}
@@ -135,32 +203,7 @@ func DownloadHead(ctx context.Context, input *DownloadInput) (*DownloadHeadOutpu
 	}, nil
 }
 
-func parseRangeHeader(range_header string) (int64, int64, error) {
-	before, after, _ := strings.Cut(range_header, "=")
-	if before != "bytes" {
-		return 0, 0, huma.Error400BadRequest("could not parse Range header.")
-	}
-
-	before, after, _ = strings.Cut(after, "/")
-	// we could check the length
-
-	before, after, _ = strings.Cut(before, "-")
-
-	start, err := strconv.Atoi(before)
-	if err != nil {
-		return 0, 0, huma.Error400BadRequest("could not parse Range start integer")
-	}
-
-	end, err := strconv.Atoi(after)
-	if err != nil {
-		return 0, 0, huma.Error400BadRequest("could not parse Range end integer")
-	}
-
-	return int64(start), int64(end), nil
-}
-
 func Download(ctx context.Context, input *DownloadInput) (*huma.StreamResponse, error) {
-
 	return serveObject(input.Filename, input.Range, input.IfNoneMatch)
 }
 
@@ -186,7 +229,7 @@ func (f *FileSender) Close() error {
 func detectType(obj *minio.Object) (*mimetype.MIME, error) {
 	buf := make([]byte, 1024)
 	_, err := obj.Read(buf)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 	_, err = obj.Seek(0, 0)
@@ -207,8 +250,8 @@ func serveObject(filename string, range_header string, if_none_match string) (*h
 
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {
-			fiber_ctx := ctx.BodyWriter().(*fiber.Ctx)
-			obj, err := GetFileObject(fiber_ctx.Context(), filename)
+			fiber_ctx := ctx.BodyWriter().(*fasthttp.RequestCtx)
+			obj, err := GetFileObject(context.Background(), filename)
 			if err != nil {
 				ctx.SetStatus(500)
 				return
@@ -245,6 +288,7 @@ func serveObject(filename string, range_header string, if_none_match string) (*h
 
 			content_type, err := detectType(obj)
 			if err != nil {
+				println(err.Error())
 				return
 			}
 			ctx.SetHeader("Content-Type", content_type.String())
@@ -258,6 +302,7 @@ func serveObject(filename string, range_header string, if_none_match string) (*h
 				if err != nil {
 					ctx.SetStatus(416)
 					ctx.SetHeader("Content-Range", fmt.Sprintf("bytes */%d", stat.Size))
+					println(err.Error())
 					return
 				}
 				reqRange = ranges[0]
@@ -275,12 +320,13 @@ func serveObject(filename string, range_header string, if_none_match string) (*h
 
 			_, err = obj.Seek(int64(reqRange.Start), 0)
 			if err != nil {
+				println(err.Error())
 				return
 			}
 
 			filesender := FileSender{obj, reqRange, 0}
 
-			err = fiber_ctx.SendStream(&filesender, int(reqRange.Length))
+			fiber_ctx.SetBodyStream(&filesender, int(reqRange.Length))
 		},
 	}, nil
 }

@@ -41,12 +41,12 @@ func SetupProducer() (*fiber.App, huma.API) {
 	api := humafiber.New(app, huma.DefaultConfig("Producer", "1.0.0"))
 	routes(api)
 
+	initClients(context.Background())
+
 	return app, api
 }
 
 func RunProducer(app *fiber.App, api huma.API) {
-	initClients(context.Background())
-
 	listen_addr := CONFIG.Listen.Addr()
 	getLogger().Printf("starting server on %s.\n", listen_addr)
 	getLogger().Fatal(app.Listen(listen_addr))

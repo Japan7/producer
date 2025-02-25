@@ -3,7 +3,7 @@ module github.com/Japan7/producer
 go 1.22.5
 
 require (
-	github.com/danielgtaylor/huma/v2 v2.29.0
+	github.com/danielgtaylor/huma/v2 v2.30.0
 	github.com/gabriel-vasile/mimetype v1.4.8
 	github.com/gofiber/fiber/v2 v2.52.6
 	github.com/johannesboyne/gofakes3 v0.0.0-20250106100439-5c39aecd6999

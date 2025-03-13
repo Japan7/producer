@@ -77,6 +77,7 @@ jobs:
           containerfiles: ci/ContainerFile
 
       - name: Push image
+        if: github.ref == 'refs/heads/main'
         id: push-image
         uses: redhat-actions/push-to-registry@v2
         with:
@@ -89,6 +90,7 @@ jobs:
   push_manifest:
     needs: [build, test]
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
     permissions:
       contents: read

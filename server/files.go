@@ -315,6 +315,7 @@ func serveObject(filename string, range_header string, if_none_match string) (*h
 				ctx.SetHeader("Expires", strconv.FormatInt(stat.Expires.Unix(), 10))
 			}
 
+			ctx.SetHeader("Content-Disposition", fmt.Sprintf("inline; filename=\"%s\"; filename*=UTF-8''%s", filename, filename))
 			ctx.SetHeader("ETag", stat.ETag)
 			ctx.SetHeader("Last-Modified", stat.LastModified.Format(http.TimeFormat))
 

@@ -6,7 +6,7 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.32.0
 	github.com/gabriel-vasile/mimetype v1.4.9
 	github.com/gofiber/fiber/v2 v2.52.8
-	github.com/johannesboyne/gofakes3 v0.0.0-20250402064820-d479899d8cbe
+	github.com/johannesboyne/gofakes3 v0.0.0-20250603205740-ed9094be7668
 )
 
 require (

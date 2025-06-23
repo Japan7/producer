@@ -3,7 +3,7 @@ module github.com/Japan7/producer
 go 1.23.0
 
 require (
-	github.com/danielgtaylor/huma/v2 v2.32.0
+	github.com/danielgtaylor/huma/v2 v2.33.0
 	github.com/gabriel-vasile/mimetype v1.4.9
 	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/johannesboyne/gofakes3 v0.0.0-20250603205740-ed9094be7668
@@ -36,7 +36,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/ironsmile/nedomi v0.1.15
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/minio/minio-go/v7 v7.0.94

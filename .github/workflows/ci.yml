@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup S3 bucket
         run: docker run -d -e MINIO_DEFAULT_BUCKETS=producer -p 9000:9000 bitnami/minio:latest
@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build producer
         run: GOOS=${{ matrix.config.GOOS }} GOARCH=${{ matrix.config.GOARCH }} ci/build.sh producer
@@ -100,7 +100,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Podman login
         uses: redhat-actions/podman-login@v1

@@ -1,6 +1,6 @@
 module github.com/Japan7/producer
 
-go 1.23.0
+go 1.24.2
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.34.1

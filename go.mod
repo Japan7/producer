@@ -6,12 +6,11 @@ require (
 	github.com/danielgtaylor/huma/v2 v2.34.1
 	github.com/gabriel-vasile/mimetype v1.4.11
 	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/johannesboyne/gofakes3 v0.0.0-20250603205740-ed9094be7668
+	github.com/johannesboyne/gofakes3 v0.0.0-20250916175020-ebf3e50324d3
 )
 
 require (
 	github.com/MStoykov/jsonutils v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.44.256 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

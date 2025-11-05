@@ -6,10 +6,6 @@
     {
       "matchDepNames": ["go"],
       "automerge": false
-    },
-    {
-      "matchPackageNames": ["bitnamilegacy/minio"],
-      "allowedVersions": "<2025.5.24"
     }
   ]
 }

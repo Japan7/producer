@@ -19,9 +19,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Setup S3 bucket
-        run: docker run -d -e MINIO_DEFAULT_BUCKETS=producer -p 9000:9000 bitnamilegacy/minio:2025.4.22
-
       - name: Run tests
         run: go test ./server
         env:

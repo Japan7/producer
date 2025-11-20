@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Run tests
         run: go test ./server
@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Build producer
         run: GOOS=${{ matrix.config.GOOS }} GOARCH=${{ matrix.config.GOARCH }} ci/build.sh producer
@@ -97,7 +97,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Podman login
         uses: redhat-actions/podman-login@v1

@@ -4,7 +4,7 @@ go 1.24.2
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.35.0
-	github.com/gabriel-vasile/mimetype v1.4.12
+	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/johannesboyne/gofakes3 v0.0.0-20250916175020-ebf3e50324d3
 )

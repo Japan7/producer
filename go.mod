@@ -5,7 +5,8 @@ go 1.25.0
 require (
 	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/gabriel-vasile/mimetype v1.4.15
-	github.com/gofiber/fiber/v2 v2.52.15
+	github.com/gofiber/fiber/v2 v2.52.12
+	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20260208201424-4c385a1f6a73
 )
 
@@ -39,8 +40,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/ironsmile/nedomi v0.1.15
 	github.com/klauspost/compress v1.19.2 // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/spf13/cobra v1.10.2

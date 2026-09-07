@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -29,6 +30,7 @@ func runTestServer() *httptest.Server {
 	CONFIG.S3.KeyID = ""
 	CONFIG.S3.Secret = ""
 	CONFIG.S3.BucketName = "producer"
+	CONFIG.Upload.Tokens = []string{"aaaaaaaa"}
 
 	err := backend.CreateBucket(CONFIG.S3.BucketName)
 	if err != nil {
@@ -40,29 +42,46 @@ func runTestServer() *httptest.Server {
 	return ts
 }
 
+func TestMain(m *testing.M) {
+    ts := runTestServer()
+    defer ts.Close()
+    code := m.Run()
+    os.Exit(code)
+}
+
 type TestUploadInfo struct {
 	URL string `json:"url"`
 }
 
 func TestUpload(t *testing.T) {
-	ts := runTestServer()
-	defer ts.Close()
-
 	test_bytes := []byte("aabcde")
 
 	var err error = nil
 	var resp *http.Response
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		b := bytes.NewBuffer(test_bytes)
 		url := fmt.Sprintf("http://%s/", CONFIG.Listen.Addr())
-		resp, err = http.Post(url, "application/octet-stream", b)
+		req, err := http.NewRequest(http.MethodPost, url, b)
 
+		if err != nil {
+			panic(err)
+		}
+
+		authorization := BEARER_PREFIX + CONFIG.Upload.Tokens[0]
+		req.Header.Add("Authorization", authorization)
+
+		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
 			time.Sleep(time.Millisecond * 100)
 		} else {
+			if resp.StatusCode != 200 {
+				t.Fatalf("Upload request returned status code %d", resp.StatusCode)
+			}
 			break
 		}
+
 	}
+
 	if err != nil {
 		panic(err)
 	}
@@ -106,5 +125,31 @@ func TestUpload(t *testing.T) {
 		if b != test_bytes[i] {
 			t.Fatalf("pos %d byte is different from expected: %d != %d", i, b, test_bytes[i])
 		}
+	}
+}
+
+func TestUnauthenticatedUpload(t *testing.T) {
+	test_bytes := []byte("aabcde")
+
+	var resp *http.Response
+	for range 10 {
+		b := bytes.NewBuffer(test_bytes)
+		url := fmt.Sprintf("http://%s/", CONFIG.Listen.Addr())
+		req, err := http.NewRequest(http.MethodPost, url, b)
+
+		if err != nil {
+			panic(err)
+		}
+
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			time.Sleep(time.Millisecond * 100)
+		} else {
+			if resp.StatusCode != 401 {
+				t.Fatalf("Unauthenticated upload request returned status code %d", resp.StatusCode)
+			}
+			break
+		}
+
 	}
 }

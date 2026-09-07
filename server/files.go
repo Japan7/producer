@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/gabriel-vasile/mimetype"
@@ -54,21 +53,19 @@ type UploadOutput struct {
 var BEARER_PREFIX = "Bearer "
 
 func isAuthenticated(authorization string) bool {
-	if CONFIG.Upload.AdminToken == "" {
+	if len(authorization) < len(BEARER_PREFIX) {
 		return false
 	}
 
-	if len(authorization) != len(BEARER_PREFIX)+len(CONFIG.Upload.AdminToken) {
-		return false
+	for _, token := range CONFIG.Upload.Tokens {
+		header_token := []byte(authorization[len(BEARER_PREFIX):])
+
+		if subtle.ConstantTimeCompare(header_token, []byte(token)) == 1 {
+			return true
+		}
 	}
 
-	if authorization[:len(BEARER_PREFIX)] == BEARER_PREFIX {
-		header_token := authorization[len(BEARER_PREFIX):]
-
-		return subtle.ConstantTimeCompare([]byte(header_token), []byte(CONFIG.Upload.AdminToken)) == 1
-	} else {
-		return false
-	}
+	return false
 }
 
 type UploadTempFile struct {
@@ -132,6 +129,9 @@ func (i *UploadInput) Resolve(ctx huma.Context) []error {
 }
 
 func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
+	if !isAuthenticated(input.Auth) {
+		return nil, huma.Error401Unauthorized("Unauthorized")
+	}
 	fd := input.File.Fd
 
 	file_id, err := uuid.NewV7()
@@ -147,12 +147,7 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 	mime := mimetype.Detect(det_buf[:n])
 	fd.Seek(0, 0)
 
-	expires := time.Now().Add(time.Duration(CONFIG.Upload.DefaultExpirationTime) * time.Second)
-	if isAuthenticated(input.Auth) {
-		expires = time.Unix(input.Expires, 0)
-	}
-
-	err = UploadToS3(ctx, fd, file_id.String(), input.FileName, input.File.Size, mime.String(), expires)
+	err = UploadToS3(ctx, fd, file_id.String(), input.FileName, input.File.Size, mime.String())
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +155,6 @@ func Upload(ctx context.Context, input *UploadInput) (*UploadOutput, error) {
 	resp := &UploadOutput{}
 	resp.Body.ID = file_id.String()
 	resp.Body.URL = fmt.Sprintf("%s/%s", CONFIG.Upload.BaseURL, file_id.String())
-	resp.Body.Expires = expires.Unix()
 
 	return resp, nil
 }

@@ -100,7 +100,7 @@ func getS3Client() *minio.Client {
 	return S3_BEST_CLIENT
 }
 
-func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64, content_type string, expires time.Time) error {
+func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename string, filesize int64, content_type string) error {
 	client := getS3Client()
 
 	info, err := client.PutObject(ctx,
@@ -113,7 +113,6 @@ func UploadToS3(ctx context.Context, file io.Reader, file_id string, filename st
 				"Filename": filename,
 				"Type":     content_type,
 			},
-			Expires: expires,
 		},
 	)
 	getLogger().Printf("upload info: %+v\n", info)

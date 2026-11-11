@@ -19,7 +19,7 @@ require (
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/molecule-man/go-brrr v1.3.0 // indirect
+	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
@@ -45,6 +45,6 @@ require (
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/spf13/cobra v1.10.2
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.77.0
+	github.com/valyala/fasthttp v1.78.0
 	golang.org/x/sys v0.49.0 // indirect
 )

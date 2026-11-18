@@ -38,13 +38,13 @@ require (
 require (
 	github.com/google/uuid v1.6.0
 	github.com/ironsmile/nedomi v0.1.15
-	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/spf13/cobra v1.10.2
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.78.0
+	github.com/valyala/fasthttp v1.79.0
 	golang.org/x/sys v0.50.0 // indirect
 )

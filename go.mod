@@ -45,6 +45,6 @@ require (
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/spf13/cobra v1.10.2
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.79.0
+	github.com/valyala/fasthttp v1.80.0
 	golang.org/x/sys v0.50.0 // indirect
 )
